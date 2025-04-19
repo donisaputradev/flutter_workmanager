@@ -95,7 +95,7 @@ class BackgroundWorker(
             }
 
             // Backwards compatibility with v1. We register all the user's plugins.
-            // Plugin registry callback not needed in v2 embedding
+            WorkmanagerPlugin.pluginRegistryCallback?.registerWith(ShimPluginRegistry(engine!!))
 
             engine?.let { engine ->
                 backgroundChannel = MethodChannel(engine.dartExecutor, BACKGROUND_CHANNEL_NAME)
