@@ -231,6 +231,10 @@ class Workmanager {
   /// The [taskName] is the value that will be returned in the [BackgroundTaskHandler], ignored on iOS where you should use [uniqueName].
   /// a [frequency] is not required and will be defaulted to 15 minutes if not provided.
   /// a [frequency] has a minimum of 15 min. Android will automatically change your frequency to 15 min if you have configured a lower frequency.
+  /// the [flexInterval] If the nature of the work is time-sensitive, you can configure the PeriodicWorkRequest to run in a flexible period at each interval.
+  /// https://developer.android.com/develop/background-work/background-tasks/persistent/getting-started/define-work?hl=pt-br#flexible_run_intervals
+  /// The [inputData] is the input data for task. Valid value types are: int, bool, double, String and their list
+
   /// Unlike Android, you cannot set [frequency] for iOS here rather you have to set in `AppDelegate.swift` while registering the task.
   /// The [inputData] is the input data for task. Valid value types are: int, bool, double, String and their list. It is not supported on iOS.
   ///
@@ -242,6 +246,7 @@ class Workmanager {
     final String uniqueName,
     final String taskName, {
     final Duration? frequency,
+    final Duration? flexInterval,
     final String? tag,
     final ExistingWorkPolicy? existingWorkPolicy,
     final Duration initialDelay = Duration.zero,
@@ -258,6 +263,7 @@ class Workmanager {
           uniqueName: uniqueName,
           taskName: taskName,
           frequency: frequency,
+          flexInterval: flexInterval,
           tag: tag,
           existingWorkPolicy: existingWorkPolicy,
           initialDelay: initialDelay,
@@ -268,6 +274,18 @@ class Workmanager {
           inputData: inputData,
         ),
       );
+
+  /// Checks whether a period task is scheduled by its [uniqueName].
+  ///
+  /// Scheduled means the work state is either ENQUEUED or RUNNING
+  ///
+  /// Only available on Android.
+  Future<bool> isScheduledByUniqueName(final String uniqueName) async {
+    return await _foregroundChannel.invokeMethod(
+      "isScheduledByUniqueName",
+      {"uniqueName": uniqueName},
+    );
+  }
 
   /// Schedule a background long running task, currently only available on iOS.
   ///
@@ -300,42 +318,6 @@ class Workmanager {
           constraints: constraints,
         ),
       );
-
-  /// Check whether background app refresh is enabled. If it is not enabled you
-  /// might ask the user to enable it in app settings.
-  ///
-  /// On iOS user can disable Background App Refresh permission anytime, hence
-  /// background tasks can only run if user has granted the permission. Parental
-  /// controls can also restrict it.
-  ///
-  /// Only available on iOS.
-  Future<BackgroundRefreshPermissionState>
-      checkBackgroundRefreshPermission() async {
-    try {
-      var result = await _foregroundChannel.invokeMethod<Object>(
-        'checkBackgroundRefreshPermission',
-        JsonMapperHelper.toInitializeMethodArgument(
-          isInDebugMode: _isInDebugMode,
-          callbackHandle: 0,
-        ),
-      );
-      switch (result.toString()) {
-        case 'available':
-          return BackgroundRefreshPermissionState.available;
-        case 'denied':
-          return BackgroundRefreshPermissionState.denied;
-        case 'restricted':
-          return BackgroundRefreshPermissionState.restricted;
-        case 'unknown':
-          return BackgroundRefreshPermissionState.unknown;
-      }
-    } catch (e) {
-      // TODO not sure it's a good idea to handle and print a message
-      print("Could not retrieve BackgroundRefreshPermissionState " +
-          e.toString());
-    }
-    return BackgroundRefreshPermissionState.unknown;
-  }
 
   /// Cancels a task by its [uniqueName]
   Future<void> cancelByUniqueName(final String uniqueName) async =>
@@ -371,6 +353,7 @@ class JsonMapperHelper {
     final String? uniqueName,
     final String? taskName,
     final Duration? frequency,
+    final Duration? flexInterval,
     final String? tag,
     final ExistingWorkPolicy? existingWorkPolicy,
     final Duration? initialDelay,
@@ -406,6 +389,7 @@ class JsonMapperHelper {
       "taskName": taskName,
       "tag": tag,
       "frequency": frequency?.inSeconds,
+      "flexInterval": flexInterval?.inSeconds,
       "existingWorkPolicy": _enumToString(existingWorkPolicy),
       "initialDelaySeconds": initialDelay?.inSeconds,
       "networkType": _enumToString(constraints?.networkType),
